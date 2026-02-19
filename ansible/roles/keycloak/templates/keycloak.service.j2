@@ -1,0 +1,15 @@
+[Unit]
+Description=Keycloak Server
+After=network.target
+
+[Service]
+User={{ keycloak_user }}
+Group={{ keycloak_group }}
+WorkingDirectory={{ keycloak_install_dir }}
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
+ExecStart={{ keycloak_install_dir }}/bin/kc.sh start --optimized
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

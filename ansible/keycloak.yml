@@ -1,0 +1,5 @@
+---
+- hosts: keycloak
+  become: yes
+  roles:
+    - keycloak

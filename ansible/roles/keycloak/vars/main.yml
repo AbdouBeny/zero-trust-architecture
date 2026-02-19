@@ -1,0 +1,15 @@
+---
+keycloak_version: "26.0.7"
+keycloak_install_dir: "/opt/keycloak"
+keycloak_user: "keycloak"
+keycloak_group: "keycloak"
+
+keycloak_hostname: "192.168.56.10"
+keycloak_http_port: 8080
+
+db_name: "keycloak"
+db_user: "keycloak"
+db_password: "keycloak123"
+
+admin_user: "admin"
+admin_password: "admin123"

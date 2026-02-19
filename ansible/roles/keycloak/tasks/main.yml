@@ -1,0 +1,9 @@
+---
+- name: Install PostgreSQL and configure DB
+  include_tasks: postgres.yml
+
+- name: Install Keycloak
+  include_tasks: keycloak.yml
+
+- name: Configure systemd service
+  include_tasks: systemd.yml

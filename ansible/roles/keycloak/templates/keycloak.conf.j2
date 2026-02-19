@@ -1,0 +1,16 @@
+# Keycloak production configuration
+
+# HTTP mode (lab)
+http-enabled=true
+http-port={{ keycloak_http_port }}
+hostname={{ keycloak_hostname }}
+hostname-strict=false
+hostname-strict-https=false
+http-host=0.0.0.0
+
+# Database
+db=postgres
+db-username={{ db_user }}
+db-password={{ db_password }}
+db-url=jdbc:postgresql://localhost:5432/{{ db_name }}
+

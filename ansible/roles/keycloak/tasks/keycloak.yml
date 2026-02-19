@@ -1,0 +1,84 @@
+---
+- name: Install dependencies
+  apt:
+    name:
+      - wget
+      - unzip
+      - tar
+      - openjdk-17-jdk
+    state: present
+    update_cache: yes
+
+- name: Create keycloak user
+  user:
+    name: "{{ keycloak_user }}"
+    system: yes
+    shell: /usr/sbin/nologin
+
+- name: Download Keycloak archive
+  get_url:
+    url: "https://github.com/keycloak/keycloak/releases/download/{{ keycloak_version }}/keycloak-{{ keycloak_version }}.tar.gz"
+    dest: "/tmp/keycloak.tar.gz"
+    mode: '0644'
+
+- name: Extract Keycloak
+  unarchive:
+    src: "/tmp/keycloak.tar.gz"
+    dest: "/opt"
+    remote_src: yes
+
+- name: Rename Keycloak directory
+  command: mv /opt/keycloak-{{ keycloak_version }} {{ keycloak_install_dir }}
+  args:
+    creates: "{{ keycloak_install_dir }}"
+
+- name: Set permissions
+  file:
+    path: "{{ keycloak_install_dir }}"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    recurse: yes
+
+- name: Deploy keycloak.conf
+  template:
+    src: keycloak.conf.j2
+    dest: "{{ keycloak_install_dir }}/conf/keycloak.conf"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: '0644'
+
+- name: Ensure data directory exists
+  file:
+    path: "{{ keycloak_install_dir }}/data"
+    state: directory
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: '0755'
+
+- name: Bootstrap admin user
+  become: yes
+  become_user: "{{ keycloak_user }}"
+  environment:
+    KC_BOOTSTRAP_ADMIN_PASSWORD: "{{ admin_password }}"
+  command: >
+    {{ keycloak_install_dir }}/bin/kc.sh bootstrap-admin user
+    --username {{ admin_user }}
+    --password:env KC_BOOTSTRAP_ADMIN_PASSWORD
+  args:
+    creates: "{{ keycloak_install_dir }}/data/admin-created.flag"
+  vars:
+    ansible_ssh_pipelining: true
+
+- name: Create admin-created flag
+  file:
+    path: "{{ keycloak_install_dir }}/data/admin-created.flag"
+    state: touch
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+
+- name: Build Keycloak optimized
+  become: yes
+  become_user: "{{ keycloak_user }}"
+  command: "{{ keycloak_install_dir }}/bin/kc.sh build"
+  vars:
+    ansible_ssh_pipelining: true
