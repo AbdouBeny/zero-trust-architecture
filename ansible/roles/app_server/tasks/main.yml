@@ -1,0 +1,6 @@
+---
+- name: Install Python and dependencies
+  include_tasks: python.yml
+
+- name: Deploy application
+  include_tasks: app.yml

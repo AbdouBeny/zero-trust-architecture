@@ -1,0 +1,68 @@
+---
+- name: Deploy requirements.txt
+  template:
+    src: requirements.txt.j2
+    dest: "{{ app_dir }}/requirements.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+
+- name: Install Python packages
+  become: yes
+  become_user: "{{ app_user }}"
+  pip:
+    requirements: "{{ app_dir }}/requirements.txt"
+    virtualenv: "{{ app_dir }}/venv"
+  vars:
+    ansible_ssh_pipelining: true
+
+- name: Create templates directory
+  file:
+    path: "{{ app_dir }}/templates"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+
+- name: Deploy client_secrets.json
+  template:
+    src: client_secrets.json.j2
+    dest: "{{ app_dir }}/client_secrets.json"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0600'
+    
+- name: Deploy Flask application
+  template:
+    src: app.py.j2
+    dest: "{{ app_dir }}/app.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+
+- name: Deploy HTML templates
+  copy:
+    src: "{{ item }}"
+    dest: "{{ app_dir }}/templates/"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+  loop:
+    - templates/index.html
+    - templates/login.html
+    - templates/dashboard.html
+
+- name: Deploy systemd service
+  template:
+    src: app.service.j2
+    dest: /etc/systemd/system/{{ app_name }}.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart app
+
+- name: Enable and start application
+  service:
+    name: "{{ app_name }}"
+    state: started
+    enabled: yes

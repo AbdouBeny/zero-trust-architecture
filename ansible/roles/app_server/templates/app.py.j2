@@ -1,0 +1,44 @@
+from flask import Flask, render_template, redirect, url_for, session, request
+from flask_oidc import OpenIDConnect
+import requests
+import os
+
+app = Flask(__name__)
+app.config.update({
+    'SECRET_KEY': '{{ lookup("password", "/dev/null length=32 chars=ascii_letters,digits") }}',
+    'OIDC_CLIENT_SECRETS': '/opt/{{ app_name }}/client_secrets.json',
+    'OIDC_ID_TOKEN_COOKIE_SECURE': False,
+    'OIDC_OPENID_REALM': '{{ keycloak_realm }}',
+    'OIDC_INTROSPECTION_AUTH_METHOD': 'client_secret_post'
+})
+
+oidc = OpenIDConnect(app)
+
+@app.route('/')
+def index():
+    if oidc.user_loggedin:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
+
+@app.route('/login')
+@oidc.require_login
+def login():
+    return redirect(url_for('dashboard'))
+
+@app.route('/dashboard')
+@oidc.require_login
+def dashboard():
+    user_info = oidc.user_getinfo(['preferred_username', 'email', 'sub'])
+    return render_template('dashboard.html', user=user_info)
+
+@app.route('/logout')
+def logout():
+    oidc.logout()
+    return redirect(url_for('index'))
+
+@app.route('/health')
+def health():
+    return {'status': 'healthy', 'app': '{{ app_name }}'}, 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port={{ app_port }}, debug=False)
