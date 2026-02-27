@@ -1,0 +1,48 @@
+# OAuth2 Proxy Configuration
+http_address = "127.0.0.1:{{ oauth2_proxy_port }}"
+
+# Keycloak OIDC
+provider = "keycloak-oidc"
+redirect_url = "http://10.10.10.10/oauth2/callback"
+oidc_issuer_url = "{{ keycloak_url }}/realms/{{ keycloak_realm }}"
+
+client_id = "{{ keycloak_client_id }}"
+client_secret = "{{ keycloak_client_secret }}"
+
+# Cookie
+cookie_secret = "{{ oauth2_cookie_secret }}"
+cookie_secure = false
+cookie_name = "_oauth2_proxy"
+cookie_domains = ["192.168.56.30", "10.10.10.10"]
+
+# Email/User
+email_domains = ["*"]
+skip_provider_button = false
+
+# Additional OIDC settings
+scope = "openid email profile"
+insecure_oidc_allow_unverified_email = true
+skip_oidc_discovery = false
+oidc_email_claim = "email"
+oidc_groups_claim = "groups"
+
+# IMPORTANT: Accepter l'audience "account"
+allowed_groups = []
+skip_jwt_bearer_tokens = true
+
+# Whitelist
+skip_auth_routes = [
+  "^/health$"
+]
+
+# Logging
+standard_logging = true
+request_logging = true
+auth_logging = true
+
+# PKCE
+code_challenge_method = "S256"
+
+# Reverse proxy settings
+reverse_proxy = true
+real_client_ip_header = "X-Real-IP"

@@ -1,0 +1,13 @@
+[Unit]
+Description=OAuth2 Proxy
+After=network.target
+
+[Service]
+User={{ gateway_user }}
+Group={{ gateway_group }}
+ExecStart={{ oauth2_proxy_install_dir }}/oauth2-proxy --config={{ oauth2_proxy_install_dir }}/oauth2-proxy.cfg
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,61 @@
+---
+- name: Create OAuth2 Proxy user
+  user:
+    name: "{{ gateway_user }}"
+    system: yes
+    shell: /usr/sbin/nologin
+    home: "{{ oauth2_proxy_install_dir }}"
+    create_home: no
+
+- name: Create installation directory
+  file:
+    path: "{{ oauth2_proxy_install_dir }}"
+    state: directory
+    owner: "{{ gateway_user }}"
+    group: "{{ gateway_group }}"
+    mode: '0755'
+
+- name: Download OAuth2 Proxy
+  get_url:
+    url: "https://github.com/oauth2-proxy/oauth2-proxy/releases/download/v{{ oauth2_proxy_version }}/oauth2-proxy-v{{ oauth2_proxy_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/oauth2-proxy.tar.gz"
+    mode: '0644'
+
+- name: Extract OAuth2 Proxy
+  unarchive:
+    src: "/tmp/oauth2-proxy.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+
+- name: Copy binary to installation directory
+  copy:
+    src: "/tmp/oauth2-proxy-v{{ oauth2_proxy_version }}.linux-amd64/oauth2-proxy"
+    dest: "{{ oauth2_proxy_install_dir }}/oauth2-proxy"
+    owner: "{{ gateway_user }}"
+    group: "{{ gateway_group }}"
+    mode: '0755'
+    remote_src: yes
+
+- name: Deploy OAuth2 Proxy configuration
+  template:
+    src: oauth2-proxy.cfg.j2
+    dest: "{{ oauth2_proxy_install_dir }}/oauth2-proxy.cfg"
+    owner: "{{ gateway_user }}"
+    group: "{{ gateway_group }}"
+    mode: '0600'
+  notify: Restart oauth2-proxy
+
+- name: Deploy systemd service
+  template:
+    src: oauth2-proxy.service.j2
+    dest: /etc/systemd/system/oauth2-proxy.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart oauth2-proxy
+
+- name: Enable and start OAuth2 Proxy
+  service:
+    name: oauth2-proxy
+    state: started
+    enabled: yes

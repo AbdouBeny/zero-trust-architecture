@@ -71,9 +71,9 @@ Vagrant.configure("2") do |config|
     internal.vm.network "private_network", ip: "10.10.10.100", virtualbox__intnet: "vlan-dmz"
     internal.vm.provider "virtualbox" do |vb|
       vb.name = "Client-Internal"
-      vb.memory = "1024"
+      vb.memory = "2024"
       vb.cpus = 1
-      #vb.gui = true
+      vb.gui = true
     end
     internal.vm.provision "ansible" do |ansible|
       ansible.playbook = "ansible/client_internal.yml"
@@ -91,8 +91,9 @@ Vagrant.configure("2") do |config|
     remote.vm.network "private_network", ip: "192.168.56.50"
     remote.vm.provider "virtualbox" do |vb|
       vb.name = "Client-Remote"
-      vb.memory = "512"
+      vb.memory = "2024"
       vb.cpus = 1
+      vb.gui = true
     end
     remote.vm.provision "ansible" do |ansible|
       ansible.playbook = "ansible/client_remote.yml"

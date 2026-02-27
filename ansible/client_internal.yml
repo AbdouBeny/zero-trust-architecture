@@ -1,0 +1,5 @@
+---
+- hosts: client
+  become: yes
+  roles:
+    - client_internal

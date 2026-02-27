@@ -1,0 +1,117 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install basic packages
+  apt:
+    name:
+      - curl
+      - wget
+      - net-tools
+      - dnsutils
+      - iputils-ping
+      - traceroute
+      - nmap
+      - tcpdump
+      - vim
+    state: present
+
+- name: Install XFCE Desktop Environment (minimal)
+  apt:
+    name:
+      - xfce4
+      - xfce4-terminal
+      - firefox
+      - xinit
+      - xserver-xorg-core
+      - xserver-xorg
+      - dbus-x11
+    state: present
+
+- name: Add vagrant user to necessary groups
+  user:
+    name: vagrant
+    groups: video,audio,plugdev,netdev,dialout
+    append: yes
+
+- name: Create .xinitrc for vagrant user
+  copy:
+    dest: /home/vagrant/.xinitrc
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      exec startxfce4
+
+- name: Create Desktop directory
+  file:
+    path: /home/vagrant/Desktop
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+
+- name: Deploy Gateway shortcut on Desktop
+  copy:
+    dest: /home/vagrant/Desktop/Gateway.desktop
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+    content: |
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name=Zero Trust Gateway
+      Comment=Access via Gateway
+      Exec=firefox http://{{ gateway_ip }}
+      Icon=firefox
+      Terminal=false
+      Categories=Network;WebBrowser;
+
+- name: Deploy App Server shortcut (for testing)
+  copy:
+    dest: /home/vagrant/Desktop/App-Direct.desktop
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+    content: |
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name=App Server (Direct - Should Fail)
+      Comment=Direct access - should be blocked
+      Exec=firefox http://{{ app_ip }}:5000
+      Icon=firefox
+      Terminal=false
+      Categories=Network;WebBrowser;
+
+- name: Create GUI start script
+  copy:
+    dest: /home/vagrant/start-gui.sh
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      echo "Starting XFCE Desktop..."
+      echo "Close this terminal to return to CLI"
+      startx
+
+
+- name: Create welcome message
+  copy:
+    dest: /etc/motd
+    content: |
+      ==========================================
+        Zero Trust Architecture - Client VM
+      ==========================================
+      
+      To start the graphical interface:
+        ./start-gui.sh
+      
+      Gateway IP: {{ gateway_ip }}
+      App Server IP: {{ app_ip }}
+      
+      ==========================================

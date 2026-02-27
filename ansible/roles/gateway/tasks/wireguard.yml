@@ -1,0 +1,96 @@
+---
+- name: Installer WireGuard
+  apt:
+    name: wireguard
+    state: present
+    update_cache: yes
+
+- name: Créer le répertoire /etc/wireguard
+  file:
+    path: /etc/wireguard
+    state: directory
+    mode: '0700'
+
+- name: Générer la clé privée du serveur
+  shell: |
+    set -o pipefail
+    wg genkey | tee /etc/wireguard/server_private.key
+  args:
+    creates: /etc/wireguard/server_private.key
+    executable: /bin/bash
+  register: server_key_gen
+
+- name: Lire la clé privée (si déjà existante)
+  slurp:
+    src: /etc/wireguard/server_private.key
+  register: server_private_key_b64
+  when: not server_key_gen.changed
+
+- name: Définir server_private_key (clé nouvellement générée)
+  set_fact:
+    server_private_key: "{{ server_key_gen.stdout }}"
+  when: server_key_gen.changed
+
+- name: Définir server_private_key (clé lue depuis le fichier)
+  set_fact:
+    server_private_key: "{{ server_private_key_b64.content | b64decode | trim }}"
+  when: not server_key_gen.changed
+
+- name: Générer la clé publique du serveur
+  shell: |
+    echo "{{ server_private_key }}" | wg pubkey | tee /etc/wireguard/server_public.key
+  args:
+    creates: /etc/wireguard/server_public.key
+
+- name: Lire la clé publique du serveur
+  slurp:
+    src: /etc/wireguard/server_public.key
+  register: server_public_key_b64
+
+- name: Définir le fait "server_public_key"
+  set_fact:
+    server_public_key: "{{ server_public_key_b64.content | b64decode | trim }}"
+
+- name: S'assurer que le répertoire files existe sur le contrôleur
+  file:
+    path: "{{ playbook_dir }}/files"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  become: no
+  run_once: true
+
+- name: Copier la clé publique du serveur sur le contrôleur Ansible
+  copy:
+    content: "{{ server_public_key }}"
+    dest: "{{ playbook_dir }}/files/gateway_public.key"
+    mode: '0644'
+  delegate_to: localhost
+  become: no
+  run_once: true
+
+- name: Installer les modules noyau supplémentaires (WireGuard)
+  apt:
+    name: "linux-modules-extra-{{ ansible_kernel }}"
+    state: present
+  when: ansible_kernel is version('5.4', '>=')
+
+- name: Charger le module WireGuard
+  modprobe:
+    name: wireguard
+    state: present
+    
+- name: Déployer la configuration WireGuard serveur (template de base)
+  template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart wireguard
+
+- name: Activer et démarrer WireGuard
+  systemd:
+    name: wg-quick@wg0
+    enabled: yes
+    state: started

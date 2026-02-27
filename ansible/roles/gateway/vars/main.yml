@@ -1,0 +1,28 @@
+---
+gateway_user: "oauth2-proxy"
+gateway_group: "oauth2-proxy"
+
+# Nginx
+nginx_port: 80
+nginx_ssl_port: 443
+
+# OAuth2 Proxy
+oauth2_proxy_version: "7.6.0"
+oauth2_proxy_install_dir: "/opt/oauth2-proxy"
+oauth2_proxy_port: 4180
+
+# Keycloak
+keycloak_url: "http://192.168.56.10:8080"
+keycloak_realm: "zerotrust"
+keycloak_client_id: "gateway-proxy"
+keycloak_client_secret: "nDHG7vaMxZOV1zlYd75GGK2N4eoOIFpl"  # generer dans Keycloak
+
+# Application backend
+app_backend_url: "http://10.10.20.10:5000"
+
+# Cookie secret (généré aléatoirement)
+oauth2_cookie_secret: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') | b64encode }}"
+
+# Network interfaces
+dmz_interface: "enp0s9"
+apps_interface: "enp0s10"
