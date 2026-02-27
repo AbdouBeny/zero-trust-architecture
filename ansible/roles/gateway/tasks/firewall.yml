@@ -1,0 +1,140 @@
+---
+- name: Install iptables-persistent
+  apt:
+    name:
+      - iptables-persistent
+      - netfilter-persistent
+    state: present
+    update_cache: yes
+
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes
+
+- name: Flush existing iptables rules
+  iptables:
+    flush: yes
+  ignore_errors: yes
+
+- name: Allow loopback
+  iptables:
+    chain: INPUT
+    in_interface: lo
+    jump: ACCEPT
+
+- name: Allow established connections
+  iptables:
+    chain: INPUT
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+
+- name: Allow SSH management only
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: '22'
+    source: 192.168.56.0/24
+    jump: ACCEPT
+
+- name: Allow SSH VirtualBox NAT (vagrant)
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: '22'
+    source: 10.0.2.0/24  # VirtualBox NAT range
+    jump: ACCEPT
+
+
+- name: Allow HTTP DMZ VLAN10
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: '80'
+    in_interface: "{{ dmz_interface }}"
+    jump: ACCEPT
+
+- name: Allow HTTP management
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: '80'
+    source: 192.168.56.0/24
+    jump: ACCEPT
+
+- name: Allow HTTP VPN wg0
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: '80'
+    in_interface: wg0
+    jump: ACCEPT
+
+- name: Allow ICMP VPN wg0
+  iptables:
+    chain: INPUT
+    protocol: icmp
+    icmp_type: echo-request
+    in_interface: wg0
+    jump: ACCEPT
+
+- name: Allow WireGuard UDP management
+  iptables:
+    chain: INPUT
+    protocol: udp
+    destination_port: '51820'
+    source: 192.168.56.0/24
+    jump: ACCEPT
+ 
+- name: Nginx -> VLAN20 Apps
+  iptables:
+    chain: FORWARD
+    source: 192.168.56.30
+    destination: 10.10.20.0/24
+    jump: ACCEPT
+
+- name: VLAN20 Apps -> Nginx
+  iptables:
+    chain: FORWARD
+    source: 10.10.20.0/24
+    destination: 192.168.56.30
+    jump: ACCEPT
+
+- name: VPN wg0 -> Nginx DMZ
+  iptables:
+    chain: FORWARD
+    in_interface: wg0
+    destination: 10.10.10.10
+    protocol: tcp
+    destination_port: '80'
+    jump: ACCEPT
+    
+# maintenant on peut changer les politiques par défaut
+- name: Set INPUT policy to DROP
+  iptables:
+    chain: INPUT
+    policy: DROP
+
+- name: Set FORWARD policy to DROP
+  iptables:
+    chain: FORWARD
+    policy: DROP
+
+- name: Set OUTPUT policy to ACCEPT
+  iptables:
+    chain: OUTPUT
+    policy: ACCEPT
+
+- name: Save iptables rules
+  shell: |
+    iptables-save > /etc/iptables/rules.v4
+  args:
+    executable: /bin/bash
+
+- name: Enable netfilter-persistent
+  service:
+    name: netfilter-persistent
+    state: started
+    enabled: yes

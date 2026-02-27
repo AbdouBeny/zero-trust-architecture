@@ -1,0 +1,7 @@
+---
+- name: Provisionner le client distant (VPN)
+  hosts: remote
+  become: yes
+  roles:
+    - client_remote
+    - client_internal

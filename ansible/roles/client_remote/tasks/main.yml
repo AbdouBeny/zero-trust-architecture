@@ -1,0 +1,109 @@
+---
+- name: Installer WireGuard
+  apt:
+    name: wireguard
+    state: present
+    update_cache: yes
+
+- name: Créer le répertoire /etc/wireguard
+  file:
+    path: /etc/wireguard
+    state: directory
+    mode: '0700'
+
+- name: Générer la clé privée du client
+  shell: |
+    set -o pipefail
+    wg genkey | tee /etc/wireguard/client_private.key
+  args:
+    creates: /etc/wireguard/client_private.key
+    executable: /bin/bash
+  register: client_key_gen
+
+- name: Lire la clé privée (si déjà existante)
+  slurp:
+    src: /etc/wireguard/client_private.key
+  register: client_private_key_b64
+  when: not client_key_gen.changed
+
+- name: Définir client_private_key (clé nouvellement générée)
+  set_fact:
+    client_private_key: "{{ client_key_gen.stdout }}"
+  when: client_key_gen.changed
+
+- name: Définir client_private_key (clé lue depuis le fichier)
+  set_fact:
+    client_private_key: "{{ client_private_key_b64.content | b64decode | trim }}"
+  when: not client_key_gen.changed
+
+- name: Générer la clé publique du client
+  shell: |
+    echo "{{ client_private_key }}" | wg pubkey | tee /etc/wireguard/client_public.key
+  args:
+    creates: /etc/wireguard/client_public.key
+
+- name: Lire la clé publique du client
+  slurp:
+    src: /etc/wireguard/client_public.key
+  register: client_public_key_b64
+
+- name: Définir le fait "client_public_key"
+  set_fact:
+    client_public_key: "{{ client_public_key_b64.content | b64decode | trim }}"
+
+# Récupération de la clé publique du serveur
+- name: Lire la clé publique du serveur depuis le controleur
+  set_fact:
+    gateway_public_key: "{{ lookup('file', playbook_dir + '/files/gateway_public.key') | trim }}"
+  run_once: true
+  delegate_to: localhost
+
+#Déploiement de la configuration client
+- name: Déployer wg0.conf client
+  template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart wireguard
+
+- name: Activer et démarrer WireGuard
+  systemd:
+    name: wg-quick@wg0
+    enabled: yes
+    state: started
+
+# Mise à jour du serveur avec la clé publique du client
+- name: Ajouter/Mettre à jour le Peer sur la Gateway
+  ansible.builtin.blockinfile:
+    path: /etc/wireguard/wg0.conf
+    block: |
+      [Peer]
+      # Client distant VM5
+      PublicKey = {{ client_public_key }}
+      AllowedIPs = 10.10.30.2/32
+    marker: "# {mark} PEER CLIENT VM5"
+    insertafter: "# ===== PEER CONFIGURATIONS ====="   # Changement clé
+    create: no
+    backup: yes
+  delegate_to: vm3
+  become: yes
+  register: peer_update
+
+- name: Arrêter WireGuard sur la Gateway si la configuration a changé
+  systemd:
+    name: wg-quick@wg0
+    state: stopped
+  delegate_to: vm3
+  become: yes
+  when: peer_update.changed
+  ignore_errors: yes   # au cas où le service ne tourne pas
+
+- name: Démarrer WireGuard sur la Gateway
+  systemd:
+    name: wg-quick@wg0
+    state: started
+  delegate_to: vm3
+  become: yes
+  when: peer_update.changed

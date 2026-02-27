@@ -1,0 +1,4 @@
+---
+vpn_server_endpoint: "192.168.56.30:51820"
+vpn_network: "10.10.30.0/24"
+vpn_client_ip: "10.10.30.2/24"

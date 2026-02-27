@@ -1,0 +1,9 @@
+[Interface]
+Address = {{ vpn_client_ip | default('10.10.30.2/24') }}
+PrivateKey = {{ client_private_key }}
+
+[Peer]
+PublicKey = {{ gateway_public_key }}
+Endpoint = {{ vpn_server_endpoint | default('192.168.56.30:51820') }}
+AllowedIPs = 10.10.10.0/24, 10.10.30.0/24
+PersistentKeepalive = 25

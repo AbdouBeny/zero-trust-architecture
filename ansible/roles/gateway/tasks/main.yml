@@ -5,8 +5,8 @@
 - name: Install and configure OAuth2 Proxy
   include_tasks: oauth2_proxy.yml
 
-#- name: Configure firewall rules
-#  include_tasks: firewall.yml
+- name: Configure firewall rules
+  include_tasks: firewall.yml
 
 - name: Configurer WireGuard
   include_tasks: wireguard.yml
