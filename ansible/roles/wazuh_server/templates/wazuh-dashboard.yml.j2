@@ -1,0 +1,15 @@
+server.host: "0.0.0.0"
+server.port: 443
+opensearch.hosts: ["http://localhost:{{ wazuh_indexer_port }}"]
+opensearch.ssl.verificationMode: none
+
+# Désactiver SSL (pas de certificats en lab)
+server.ssl.enabled: false
+# server.ssl.certificate: /etc/wazuh-dashboard/certs/wazuh-dashboard.pem
+# server.ssl.key: /etc/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+
+# Wazuh monitoring – désactivé pour l'instant
+# wazuh.monitoring.enabled: true
+# wazuh.monitoring.frequency: 900
+# wazuh.monitoring.shards: 1
+# wazuh.monitoring.replicas: 0

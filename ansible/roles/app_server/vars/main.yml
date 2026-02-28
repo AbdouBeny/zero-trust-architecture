@@ -8,6 +8,6 @@ app_port: 5000
 keycloak_url: "http://192.168.56.10:8080"
 keycloak_realm: "zerotrust"
 keycloak_client_id: "business-app"
-keycloak_client_secret: "n4kaR1jKiF6UFgIxjAVnrJKRZatKX0k5"  
+keycloak_client_secret: "ruIG7GbPczfU5tglMPtUMysKuJaekzKV"  
 
 python_version: "3.8"

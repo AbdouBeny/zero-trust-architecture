@@ -1,0 +1,8 @@
+---
+- name: Install and configure Wazuh agents on monitored hosts
+  hosts: monitored
+  become: yes
+  vars:
+    wazuh_manager_ip: "192.168.56.60"
+  roles:
+    - wazuh_agent

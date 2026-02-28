@@ -1,0 +1,18 @@
+network.host: "0.0.0.0"
+node.name: "wazuh-indexer"
+cluster.name: "wazuh-cluster"
+discovery.type: single-node
+
+path.data: /var/lib/wazuh-indexer
+path.logs: /var/log/wazuh-indexer
+
+bootstrap.memory_lock: false
+
+# Désactivation SSL et sécurité pour lab
+plugins.security.disabled: true
+plugins.security.ssl.http.enabled: false
+plugins.security.ssl.transport.enabled: false
+
+# Performance tuning (2 Go RAM)
+indices.memory.index_buffer_size: 30%
+indices.query.bool.max_clause_count: 8192

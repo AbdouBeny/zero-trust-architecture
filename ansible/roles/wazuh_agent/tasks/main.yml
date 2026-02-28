@@ -1,0 +1,67 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install dependencies
+  apt:
+    name:
+      - curl
+      - apt-transport-https
+      - lsb-release
+      - gnupg
+    state: present
+
+- name: Add Wazuh GPG key
+  apt_key:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    state: present
+
+- name: Add Wazuh repository
+  apt_repository:
+    repo: "deb https://packages.wazuh.com/4.x/apt/ stable main"
+    state: present
+    filename: wazuh
+
+- name: Update apt cache after adding repo
+  apt:
+    update_cache: yes
+
+- name: Install Wazuh agent
+  apt:
+    name: wazuh-agent={{ wazuh_agent_version | default('4.7.2') }}-*
+    state: present
+
+- name: Configure Wazuh agent - manager IP
+  lineinfile:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<address>[^<]+</address>'
+    line: "    <address>{{ wazuh_manager_ip }}</address>"
+    backrefs: yes
+
+- name: Configure Wazuh agent - protocol
+  lineinfile:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<protocol>[^<]+</protocol>'
+    line: "    <protocol>{{ wazuh_agent_protocol }}</protocol>"
+    backrefs: yes
+
+- name: Configure Wazuh agent - agent name
+  lineinfile:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<agent_name>[^<]+</agent_name>'
+    line: "    <agent_name>{{ wazuh_agent_name }}</agent_name>"
+    backrefs: yes
+
+- name: Enable and start Wazuh agent
+  systemd:
+    name: wazuh-agent
+    enabled: yes
+    state: started
+  register: agent_started
+
+- name: Wait for agent to register
+  wait_for:
+    timeout: 10
+  when: agent_started.changed

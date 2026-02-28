@@ -1,0 +1,173 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install dependencies
+  apt:
+    name:
+      - curl
+      - apt-transport-https
+      - lsb-release
+      - gnupg
+      - software-properties-common
+    state: present
+
+- name: Add Wazuh GPG key
+  apt_key:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    state: present
+
+- name: Add Wazuh repository
+  apt_repository:
+    repo: "deb https://packages.wazuh.com/4.x/apt/ stable main"
+    state: present
+    filename: wazuh
+
+- name: Update apt cache after adding repo
+  apt:
+    update_cache: yes
+
+- name: Install Wazuh Manager
+  apt:
+    name: wazuh-manager={{ wazuh_manager_version }}-*
+    state: present
+
+- name: Enable and start Wazuh Manager
+  service:
+    name: wazuh-manager
+    state: started
+    enabled: yes
+
+- name: Install Wazuh Indexer prerequisites
+  apt:
+    name:
+      - openjdk-11-jdk
+    state: present
+
+- name: Download Wazuh Indexer
+  get_url:
+    url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-indexer/wazuh-indexer_{{ wazuh_indexer_version }}-1_amd64.deb"
+    dest: /tmp/wazuh-indexer.deb
+
+- name: Install Wazuh Indexer
+  apt:
+    deb: /tmp/wazuh-indexer.deb
+    state: present
+
+- name: Configure Wazuh Indexer JVM options
+  lineinfile:
+    path: /etc/wazuh-indexer/jvm.options
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^-Xms', line: '-Xms{{ indexer_heap_size }}' }
+    - { regexp: '^-Xmx', line: '-Xmx{{ indexer_heap_size }}' }
+
+- name: Set vm.max_map_count for OpenSearch
+  sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: yes
+
+- name: Deploy Wazuh Indexer config (no SSL)
+  template:
+    src: opensearch.yml.j2
+    dest: /etc/wazuh-indexer/opensearch.yml
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0660'
+
+- name: Ensure proper ownership of Wazuh Indexer directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0750'
+  loop:
+    - /etc/wazuh-indexer
+    - /etc/wazuh-indexer/backup
+    - /var/lib/wazuh-indexer
+    - /var/log/wazuh-indexer
+    
+- name: Enable and start Wazuh Indexer
+  service:
+    name: wazuh-indexer
+    state: started
+    enabled: yes
+
+- name: Wait for Wazuh Indexer to be ready
+  wait_for:
+    port: "{{ wazuh_indexer_port }}"
+    delay: 10
+    timeout: 120
+
+- name: Install Wazuh Dashboard
+  apt:
+    name: wazuh-dashboard={{ wazuh_dashboard_version }}-*
+    state: present
+
+- name: Install Wazuh plugin for OpenSearch Dashboards
+  become: yes
+  become_user: wazuh-dashboard
+  command: |
+    /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin
+    install https://packages.wazuh.com/4.x/ui/dashboards/wazuh-dashboards-plugin-{{ wazuh_dashboard_version }}.zip
+  args:
+    creates: /usr/share/wazuh-dashboard/plugins/wazuh
+  register: plugin_install
+  notify: restart wazuh-dashboard
+
+- name: Ensure proper ownership of plugins directory
+  file:
+    path: /usr/share/wazuh-dashboard/plugins
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    recurse: yes
+  when: plugin_install.changed
+
+- name: Remove securityDashboards plugin (lab mode)
+  become: yes
+  become_user: wazuh-dashboard
+  command: |
+    /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin remove securityDashboards
+  register: remove_plugin
+  failed_when: false   # ne pas échouer si déjà absent
+  changed_when: "'removed' in remove_plugin.stdout"
+
+- name: Restart dashboard if plugin removed
+  systemd:
+    name: wazuh-dashboard
+    state: restarted
+  when: remove_plugin.changed
+
+- name: Deploy Wazuh Dashboard config
+  template:
+    src: wazuh-dashboard.yml.j2
+    dest: /etc/wazuh-dashboard/opensearch_dashboards.yml
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '0660'
+
+- name: Enable and start Wazuh Dashboard
+  service:
+    name: wazuh-dashboard
+    state: started
+    enabled: yes
+
+- name: Wait for Wazuh Dashboard to be ready
+  wait_for:
+    port: 443
+    delay: 10
+    timeout: 120
+
+- name: Display access information
+  debug:
+    msg:
+      - "Wazuh Dashboard accessible at: https://192.168.56.60"
+      - "Note: SSL certificate is self-signed, accept in browser"
+      - "Default login may be required - check Wazuh docs"
+      - "Wazuh Manager listening on port {{ wazuh_manager_port }}"
